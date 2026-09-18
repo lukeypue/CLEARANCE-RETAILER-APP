@@ -7,10 +7,16 @@ import com.clearance.retailer.data.*;
 import com.clearance.retailer.domain.NearbyQuery;
 import com.clearance.retailer.model.*;
 import java.util.*;
+import java.net.*;
 
 /** One genuine HTTPS integration query per CI run. Never packages fixtures as real stores. */
 public final class LiveLookupTests {
     @Test public void testPublicZipAndStoreEndpointsOnAndroid() throws Exception {
+        // Boot completion is not network readiness on a fresh emulator.
+        for(int attempt=0;;attempt++){
+            try{InetAddress.getAllByName("api.zippopotam.us");break;}
+            catch(UnknownHostException e){if(attempt>=29)throw e;Thread.sleep(1000);}
+        }
         StoreLookup lookup=new StoreLookup(InstrumentationRegistry.getInstrumentation().getTargetContext().getSharedPreferences("nearby-v2",0),StoreLookup::https);
         StoreLookup.Snapshot found=lookup.find("84043",50,System.currentTimeMillis());
         assertEquals("84043",found.location.zip);assertEquals("UT",found.location.state);

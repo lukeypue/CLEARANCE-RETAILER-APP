@@ -37,6 +37,13 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: clearance-test-signing-v1
+      - name: Ensure persistent test signing key
+        run: |
+          test_signing_path="$HOME/.android/debug.keystore"
+          if [ ! -f "$test_signing_path" ]; then
+            mkdir -p "$HOME/.android"
+            keytool -genkeypair -keystore "$test_signing_path" -storepass android -keypass android -alias androiddebugkey -dname 'CN=Android Debug,O=Android,C=US' -keyalg RSA -keysize 2048 -validity 10000
+          fi
       - name: Catalog behavior tests
         run: bash scripts/test-domain.sh
       - name: Android lint and APK
@@ -46,6 +53,7 @@ jobs:
           mkdir -p dist
           cp app/build/outputs/apk/debug/app-debug.apk dist/Clearance-Retailer-v0.2.0-test.apk
           sha256sum dist/*.apk > dist/SHA256SUMS.txt
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs dist/Clearance-Retailer-v0.2.0-test.apk > dist/SIGNATURE.txt
       - uses: actions/upload-artifact@v4
         with:
           name: Clearance-Retailer-v0.2.0-test
@@ -82,6 +90,8 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Check host access to ZIP provider
+        run: curl --fail --silent --show-error --connect-timeout 10 --max-time 25 https://api.zippopotam.us/us/84043
       - name: Exercise Android phone flows
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -89,6 +99,7 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -dns-server 8.8.8.8,1.1.1.1
           disable-animations: true
           script: python3 scripts/android-smoke.py dist/Clearance-Retailer-v0.2.0-test.apk test-apk/app-debug-androidTest.apk
       - uses: actions/upload-artifact@v4

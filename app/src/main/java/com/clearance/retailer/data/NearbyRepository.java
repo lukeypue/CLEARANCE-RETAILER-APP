@@ -5,6 +5,7 @@ import android.os.Handler;
 import android.os.Looper;
 import com.clearance.retailer.model.ZipLocation;
 import java.io.IOException;
+import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -37,6 +38,7 @@ public final class NearbyRepository {
         worker.execute(()->{
             StoreLookup.Snapshot found=null;String failure="";
             try{found=lookup.find(zip,radius,System.currentTimeMillis());}
+            catch(UnknownHostException|ConnectException|SocketTimeoutException e){failure="Could not reach the store service. Check your connection and try again.";}
             catch(IOException e){failure=e.getMessage()==null?"Could not reach the store service. Check your connection and try again.":e.getMessage();}
             catch(RuntimeException e){failure="Could not read the store results. Please try later.";}
             final StoreLookup.Snapshot complete=found;final String message=failure;

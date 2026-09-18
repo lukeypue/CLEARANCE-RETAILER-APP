@@ -1,6 +1,6 @@
 # Test version 0.2.0 on Android
 
-1. Download and open `Clearance-Retailer-v0.2.0-test.apk`. Allow installation from your browser/file app if Android asks. Install it over the existing test app where the signing identity matches; this preserves saved sample items.
+1. Download and open `Clearance-Retailer-v0.2.0-test.apk`. Allow installation from your browser/file app if Android asks. **Uninstall v0.1 first**: its CI signing key was not retained, so Android cannot update it in place. Uninstalling resets saved sample items. The v0.2 workflow fixes the signing-key path for future updates.
 2. Open **Clearance Test**, enter a five-digit US ZIP, select 3 or 5 stores per retailer and a 50- or 100-mile radius, then tap **Find stores**. The first lookup needs internet and can take up to about a minute. US ZIPs only; some special-purpose ZIPs may be absent from the ZIP provider.
 3. Check the result's city/ZIP and radius. Each retailer has its own nearest locations. Distances are straight-line estimates from the ZIP center. Fewer than 3/5 results means fewer mapped stores were found within the radius. Use the retailer locator if coverage is sparse.
 4. Tap **Save store**, then **Saved**. Close/reopen the app and confirm it remains. Remove the final saved store and check that the empty state appears.

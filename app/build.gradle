@@ -15,6 +15,12 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    signingConfigs {
+        debug {
+            // Match the exact path retained by the GitHub test-key cache.
+            storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
+        }
+    }
     buildTypes {
         debug {
             applicationIdSuffix '.test'

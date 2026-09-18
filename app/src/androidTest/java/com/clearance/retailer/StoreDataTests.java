@@ -21,7 +21,7 @@ public final class StoreDataTests {
         try{StoreData.zip(ZIP,"84043");fail("Accepted mismatched ZIP");}catch(IOException expected){}
     }
     @Test public void testIncompleteResponseDoesNotBecomeEmptyInventory() throws Exception {
-        for(String bad:Arrays.asList("{}","<html>busy</html>","{\"elements\":[{}]}","{\"elements\":[null]}","{\"elements\":[{\"tags\":\"invalid\"}]}","{\"remark\":\"runtime error: timed out\",\"elements\":[]}")){
+        for(String bad:Arrays.asList("{}","<html>busy</html>","{\"elements\":[{}]}","{\"elements\":[null]}","{\"elements\":[{\"tags\":{}}]}","{\"elements\":[{\"tags\":\"invalid\"}]}","{\"remark\":\"runtime error: timed out\",\"elements\":[]}")){
             try{StoreData.stores(bad);fail("Accepted incomplete response");}catch(IOException expected){}
         }
         assertTrue(StoreData.stores("{\"elements\":[]}").isEmpty());

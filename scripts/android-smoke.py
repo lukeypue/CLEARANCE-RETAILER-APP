@@ -81,6 +81,8 @@ def main():
     adb("install", "-r", sys.argv[1])
     adb("shell", "pm", "clear", PACKAGE)
     adb("install", "-r", sys.argv[2])
+    adb("shell", "svc", "wifi", "enable")
+    adb("shell", "svc", "data", "enable")
     output = adb("shell", "am", "instrument", "-w", PACKAGE + ".test/androidx.test.runner.AndroidJUnitRunner")
     (OUT / "instrumentation.txt").write_text(output)
     print(output)
@@ -106,6 +108,8 @@ def main():
     adb("shell", "am", "force-stop", PACKAGE)
     launch()
     locate(saved_control, scroll=True)
+    tap(saved_control)
+    locate("No saved stores in this selection", scroll=True)
     tap("Discover tab")
     tap("Closest 5")
     tap("Closest 3")
@@ -176,6 +180,7 @@ try:
 except Exception:
     screenshot("failure")
     (OUT / "logcat.txt").write_text(adb("logcat", "-d", "-t", "1500"))
+    (OUT / "connectivity.txt").write_text(adb("shell", "dumpsys", "connectivity"))
     raise
 finally:
     adb("shell", "svc", "wifi", "enable")

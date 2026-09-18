@@ -22,24 +22,23 @@ public final class StoreData {
         try{
             JSONObject root=new JSONObject(body);
             if(!root.optString("remark").isEmpty())throw new JSONException("Incomplete map response");
-            JSONArray elements=root.getJSONArray("elements");List<NearbyStore> stores=new ArrayList<>();int malformed=0;
+            JSONArray elements=root.getJSONArray("elements");List<NearbyStore> stores=new ArrayList<>();
             for(int i=0;i<elements.length();i++){
                 JSONObject item=elements.getJSONObject(i);
                 JSONObject tags=item.getJSONObject("tags");
+                String type=item.getString("type");long id=item.getLong("id");
+                if(!Arrays.asList("node","way","relation").contains(type)||id<=0)throw new JSONException("Invalid map identity");
+                JSONObject point=item.has("center")?item.getJSONObject("center"):item;
+                double lat=point.getDouble("lat"),lon=point.getDouble("lon");ZipLocation.validateCoordinates(lat,lon);
                 Map<String,String> values=new HashMap<>();Iterator<String> keys=tags.keys();
                 while(keys.hasNext()){String key=keys.next();values.put(key,tags.optString(key));}
                 String retailer=NearbyQuery.retailer(values);if(retailer.isEmpty())continue;
-                try{
-                    JSONObject point=item.has("center")?item.getJSONObject("center"):item;
-                    String type=item.getString("type");if(!Arrays.asList("node","way","relation").contains(type))throw new JSONException("Invalid map identity");
-                    String address=address(tags);String branch=tags.optString("branch").trim();
-                    String name=Retailer.byId(retailer).label+(branch.isEmpty()?"":" · "+branch);
-                    stores.add(new NearbyStore("osm-"+type+"-"+item.getLong("id"),retailer,name,address,point.getDouble("lat"),point.getDouble("lon")));
-                }catch(JSONException|IllegalArgumentException e){malformed++;}
+                String address=address(tags);String branch=tags.optString("branch").trim();
+                String name=Retailer.byId(retailer).label+(branch.isEmpty()?"":" · "+branch);
+                stores.add(new NearbyStore("osm-"+type+"-"+id,retailer,name,address,lat,lon));
             }
-            if(malformed>0)throw new JSONException("Some mapped stores could not be read");
             return Collections.unmodifiableList(stores);
-        }catch(JSONException e){throw new IOException("The store service returned incomplete data. Please try later.",e);}
+        }catch(JSONException|IllegalArgumentException e){throw new IOException("The store service returned incomplete data. Please try later.",e);}
     }
     private static String address(JSONObject tags){
         String street=(tags.optString("addr:housenumber")+" "+tags.optString("addr:street")).trim();
