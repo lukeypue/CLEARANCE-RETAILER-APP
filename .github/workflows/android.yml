@@ -23,6 +23,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -54,4 +56,35 @@ jobs:
         with:
           name: android-lint-report
           path: app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+
+  phone-smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Clearance-Retailer-v0.1.0-test
+          path: dist
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Exercise Android phone flows
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: true
+          script: python3 scripts/android-smoke.py dist/Clearance-Retailer-v0.1.0-test.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-phone-smoke
+          path: smoke-results/
           if-no-files-found: ignore
