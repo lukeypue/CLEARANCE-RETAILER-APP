@@ -31,6 +31,8 @@ def locate(value, *, scroll=False, timeout=25):
             if any(node.get(k, "").casefold() == value.casefold() for k in ("text", "content-desc")):
                 bounds = list(map(int, re.findall(r"\d+", node.get("bounds", ""))))
                 if len(bounds) == 4 and bounds[2] > bounds[0] and bounds[3] > bounds[1]:
+                    if node.get("clickable") == "true" and bounds[3] - bounds[1] < 50:
+                        continue  # Scroll controls fully into view instead of tapping a clipped sliver.
                     return bounds
         if scroll:
             width, height = map(int, re.findall(r"(\d+)x(\d+)", adb("shell", "wm", "size"))[-1])

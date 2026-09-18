@@ -60,7 +60,10 @@ public final class NearbyScreen {
         LinearLayout card=card(activity);card.addView(text(activity,"YOUR ZIP CODE",11,GREEN,true));gap(card,8);
         EditText input=field("Five-digit US ZIP",zip);input.setInputType(InputType.TYPE_CLASS_NUMBER);
         input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(5)});input.setEnabled(!repository.loading);
-        watch(input,value->{zip=value;persist();});card.addView(input);gap(card,10);
+        card.addView(input);
+        TextView validation=text(activity,"",13,AMBER,false);validation.setVisibility(View.GONE);
+        validation.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);card.addView(validation);
+        watch(input,value->{zip=value;persist();validation.setVisibility(View.GONE);});gap(card,10);
         LinearLayout options=row(activity);
         TextView number=button(activity,"Closest "+count,false,()->new AlertDialog.Builder(activity).setTitle("Stores per retailer")
             .setSingleChoiceItems(new String[]{"Closest 3","Closest 5"},count==3?0:1,(dialog,which)->{count=which==0?3:5;persist();dialog.dismiss();redraw.run();}).setNegativeButton("Cancel",null).show());
@@ -70,7 +73,7 @@ public final class NearbyScreen {
         distance.setEnabled(!repository.loading);options.addView(distance,new LinearLayout.LayoutParams(0,-2,1));card.addView(options);gap(card,10);
         TextView find=button(activity,repository.loading?"Finding stores…":"Find stores",true,()->{
             hideKeyboard();try{zip=ZipLocation.normalize(input.getText().toString());persist();repository.search(zip,radius);}
-            catch(IllegalArgumentException e){input.setError(e.getMessage());input.requestFocus();}
+            catch(IllegalArgumentException e){validation.setText(e.getMessage());validation.setVisibility(View.VISIBLE);input.requestFocus();}
         });find.setEnabled(!repository.loading);card.addView(find);gap(card,8);
         card.addView(text(activity,"Up to "+count+" locations per retailer, ordered by distance from the ZIP center.",12,MUTED,false));
         if(repository.loading){gap(card,10);ProgressBar progress=new ProgressBar(activity);card.addView(progress);}
