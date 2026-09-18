@@ -12,8 +12,10 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.*;
 import com.clearance.retailer.data.*;
 import com.clearance.retailer.domain.DealQuery;
+import com.clearance.retailer.domain.Categories;
 import com.clearance.retailer.model.*;
 import com.clearance.retailer.ui.DealDetails;
+import com.clearance.retailer.ui.NearbyScreen;
 import java.util.*;
 import static com.clearance.retailer.ui.Ui.*;
 
@@ -26,19 +28,23 @@ public final class MainActivity extends Activity {
     private TextView resultCount;
     private ScrollView scroll;
     private String tab="Discover";
+    private NearbyScreen nearby;
+    private boolean demoMode;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         saved=new SavedDeals(this);prefs=getSharedPreferences("browsing",MODE_PRIVATE);restoreFilters();
+        demoMode=prefs.getBoolean("demoMode",false);nearby=new NearbyScreen(this,this::render);nearby.observe();
         getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(WHITE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         render();
     }
     @Override protected void onPause(){persist();super.onPause();}
+    @Override protected void onDestroy(){nearby.close();super.onDestroy();}
     private void persist(){
         prefs.edit().putString("retailer",filter.retailerId).putString("store",filter.storeId)
             .putString("category",filter.category).putString("search",filter.search)
-            .putString("sort",filter.sort.name()).putBoolean("sold",filter.showSoldOut).putString("tab",tab).apply();
+            .putString("sort",filter.sort.name()).putBoolean("sold",filter.showSoldOut).putString("tab",tab).putBoolean("demoMode",demoMode).apply();
     }
     private void restoreFilters(){
         filter.retailerId=prefs.getString("retailer","");filter.storeId=prefs.getString("store","");
@@ -48,7 +54,7 @@ public final class MainActivity extends Activity {
         try{filter.sort=DealQuery.Sort.valueOf(prefs.getString("sort","NEWEST"));}catch(IllegalArgumentException ignored){filter.sort=DealQuery.Sort.NEWEST;}
         if(!filter.storeId.isEmpty()){try{DemoCatalog.store(filter.storeId);}catch(IllegalArgumentException ignored){filter.storeId="";}}
         if(!filter.retailerId.isEmpty()){try{Retailer.byId(filter.retailerId);}catch(IllegalArgumentException ignored){filter.retailerId="";}}
-        if(!filter.category.isEmpty()&&!DemoCatalog.categories().contains(filter.category))filter.category="";
+        if(!filter.category.isEmpty()&&!Categories.all().contains(filter.category))filter.category="";
     }
     private void render(){
         results=null;resultCount=null;
@@ -71,18 +77,22 @@ public final class MainActivity extends Activity {
         TextView mark=text(this,"C",22,WHITE,true);mark.setGravity(Gravity.CENTER);mark.setBackground(bg(this,GREEN,12,false));
         brand.addView(mark,new LinearLayout.LayoutParams(dp(this,42),dp(this,42)));
         LinearLayout name=column(this);pad(name,12,0);name.addView(text(this,"CLEARANCE",17,INK,true));name.addView(text(this,"Find more. Spend less.",11,MUTED,false));
-        brand.addView(name,new LinearLayout.LayoutParams(0,-2,1));brand.addView(pill(this,"v0.1 TEST",GREEN,PALE));content.addView(brand);gap(content,22);
-        if(tab.equals("Stores"))renderStores();else if(tab.equals("Sources"))renderSources();else renderBrowse();
+        brand.addView(name,new LinearLayout.LayoutParams(0,-2,1));brand.addView(pill(this,"v0.2 TEST",GREEN,PALE));content.addView(brand);gap(content,22);
+        if(tab.equals("Sources"))nearby.sources(content,this::toggleDemo,demoMode);
+        else if(!demoMode)nearby.render(content,tab);
+        else if(tab.equals("Stores"))renderStores();else renderBrowse();
     }
     private void navigate(String selected){
         hideKeyboard();
-        if(selected.equals("Saved")&&!tab.equals("Saved"))clearFilters();
+        if(demoMode&&selected.equals("Saved")&&!tab.equals("Saved"))clearFilters();
         tab=selected;persist();render();
     }
+    private void toggleDemo(){hideKeyboard();demoMode=!demoMode;tab="Discover";persist();render();}
     private void sampleNotice(){
         LinearLayout notice=column(this);pad(notice,14,12);notice.setBackground(bg(this,SAND,12,false));
         notice.addView(text(this,"SAMPLE INVENTORY",11,AMBER,true));gap(notice,3);
         notice.addView(text(this,"Try the app with fictional finds. Live store data is not connected yet.",13,AMBER,false));content.addView(notice);gap(content,18);
+        content.addView(button(this,"Return to real stores",false,this::toggleDemo));gap(content,12);
     }
     private void renderBrowse(){
         boolean savedTab=tab.equals("Saved");filter.savedOnly=savedTab;
@@ -121,7 +131,7 @@ public final class MainActivity extends Activity {
     private void horizontalCategories(){
         HorizontalScrollView horizontal=new HorizontalScrollView(this);horizontal.setHorizontalScrollBarEnabled(false);
         LinearLayout row=row(this);addPill(row,"All categories",filter.category.isEmpty(),()->setCategory(""));
-        for(String category:DemoCatalog.categories())addPill(row,category,filter.category.equals(category),()->setCategory(category));
+        for(String category:Categories.all())addPill(row,category,filter.category.equals(category),()->setCategory(category));
         horizontal.addView(row);content.addView(horizontal);
     }
     private void addPill(LinearLayout row,String label,boolean active,Runnable click){
@@ -175,18 +185,7 @@ public final class MainActivity extends Activity {
                 clearFilters();filter.storeId=store.id;filter.retailerId=store.retailerId;tab="Discover";persist();render();
             });button.setContentDescription("Browse "+store.displayName());card.addView(button);addCard(content,card);
         }
-        content.addView(text(this,"Real nearby stores and ZIP/radius search will become available when store data is connected. These locations are fictional.",14,MUTED,false));
-    }
-    private void renderSources(){
-        content.addView(text(this,"Know your data.",32,INK,true));gap(content,8);content.addView(text(this,"Clear prices. Clear provenance.",15,MUTED,false));gap(content,20);sampleNotice();
-        LinearLayout explainer=card(this);explainer.addView(text(this,"What this version does",20,INK,true));gap(explainer,10);
-        explainer.addView(text(this,"Browse sample deals, try store and category filters, compare sample price history, and save finds on your phone.",15,MUTED,false));gap(explainer,14);
-        explainer.addView(text(this,"What still needs connecting",17,INK,true));gap(explainer,8);explainer.addView(text(this,"Live inventory, real nearby stores, verified clearance dates, and automatic updates. We cannot yet show all clearance items in a real store.",15,MUTED,false));addCard(content,explainer);
-        for(Retailer r:Retailer.values()){
-            LinearLayout card=card(this);card.addView(text(this,r.label,18,INK,true));gap(card,8);card.addView(pill(this,"LIVE DATA NOT CONNECTED",AMBER,SAND));gap(card,8);card.addView(text(this,"Sample catalog only · no stock or prices verified",13,MUTED,false));addCard(content,card);
-        }
-        LinearLayout privacy=card(this);privacy.addView(text(this,"Made for a simple first test",18,INK,true));gap(privacy,8);
-        privacy.addView(text(this,"No account needed. No location access. No analytics. This build does not connect to the internet. Saved items stay on this phone.\n\nIndependent app; not affiliated with the listed retailers.",14,MUTED,false));addCard(content,privacy);
+        content.addView(text(this,"These sample locations are fictional. Return to real stores to search nearby locations by ZIP.",14,MUTED,false));
     }
     private void hideKeyboard(){View focus=getCurrentFocus();if(focus!=null){((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(focus.getWindowToken(),0);focus.clearFocus();}}
 }

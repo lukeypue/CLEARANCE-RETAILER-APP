@@ -13,7 +13,7 @@ OUT.mkdir(exist_ok=True)
 
 
 def adb(*args, binary=False):
-    return subprocess.check_output(["adb", *args], timeout=35, text=not binary)
+    return subprocess.check_output(["adb", *args], timeout=180, text=not binary)
 
 
 def snapshot():
@@ -54,12 +54,87 @@ def launch():
     adb("shell", "am", "start", "-W", "-n", COMPONENT)
 
 
+def fill(value, text):
+    tap(value)
+    adb("shell", "input", "keyevent", "KEYCODE_MOVE_END")
+    for _ in range(8):
+        adb("shell", "input", "keyevent", "KEYCODE_DEL")
+    adb("shell", "input", "text", text)
+    adb("shell", "input", "keyevent", "KEYCODE_BACK")
+
+
+def first_save():
+    end = time.monotonic() + 45
+    while time.monotonic() < end:
+        for node in snapshot().iter("node"):
+            value = node.get("content-desc", "")
+            if value.startswith("Save store osm-"):
+                tap(value)
+                return value
+        width, height = map(int, re.findall(r"(\d+)x(\d+)", adb("shell", "wm", "size"))[-1])
+        adb("shell", "input", "swipe", str(width // 2), str(int(height * .76)),
+            str(width // 2), str(int(height * .30)), "350")
+    raise AssertionError("No real store save control")
+
+
 def main():
     adb("install", "-r", sys.argv[1])
     adb("shell", "pm", "clear", PACKAGE)
+    adb("install", "-r", sys.argv[2])
+    output = adb("shell", "am", "instrument", "-w", PACKAGE + ".test/androidx.test.runner.AndroidJUnitRunner")
+    (OUT / "instrumentation.txt").write_text(output)
+    print(output)
+    if not re.search(r"OK \(6 tests\)", output):
+        raise AssertionError("Android data/integration tests did not all pass")
     launch()
+    locate("Start close to home.")
+    screenshot("01-zip-search")
+    fill("Five-digit US ZIP", "123")
+    tap("Find stores")
+    locate("Enter a five-digit US ZIP code.")
+    fill("Five-digit US ZIP", "84043")
+    tap("Find stores")
+    locate("Walmart · 5 nearby", scroll=True)
+    screenshot("02-real-walmart-stores")
+    saved_control = first_save()
+    locate("Saved store ✓")
+    tap("Saved tab")
+    locate("Your saved stores.")
+    locate("Clearance & stock: unavailable", scroll=True)
+    locate(saved_control, scroll=True)
+    screenshot("03-saved-real-store")
+    adb("shell", "am", "force-stop", PACKAGE)
+    launch()
+    locate(saved_control, scroll=True)
+    tap("Discover tab")
+    tap("Closest 5")
+    tap("Closest 3")
+    locate("Walmart · 3 nearby", scroll=True)
+    tap("Discover tab")
+    tap("All 36 categories  ›", scroll=True)
+    fill("Find a category", "Farm")
+    tap("Farm & Ranch")
+    locate("Farm & Ranch  ›", scroll=True)
+    screenshot("04-categories")
+    tap("Stores tab")
+    locate("Walmart · 3 nearby", scroll=True)
+    tap("Search retailer website", scroll=True)
+    locate("Check Walmart")
+    screenshot("05-website-handoff")
+    tap("Cancel")
+    adb("shell", "svc", "wifi", "disable")
+    adb("shell", "svc", "data", "disable")
+    adb("shell", "am", "force-stop", PACKAGE)
+    launch()
+    tap("Find stores")
+    locate("Walmart · 3 nearby", scroll=True)
+    screenshot("06-offline-cache")
+    adb("shell", "svc", "wifi", "enable")
+    adb("shell", "svc", "data", "enable")
+    tap("Sources tab")
+    locate("Store discovery is connected")
+    tap("Try sample catalog", scroll=True, timeout=60)
     locate("SAMPLE INVENTORY")
-    screenshot("01-discover")
     tap("Stores tab")
     tap("Browse Walmart · North · sample store", scroll=True)
     tap("View Compact air fryer at Walmart · North · sample store", scroll=True)
@@ -93,7 +168,7 @@ def main():
     launch()
     locate("Sources tab")
     screenshot("06-large-text")
-    print("PASS: Android UI launch, store browsing, details, saved persistence, store-specific prices, sources, rotation and large-text navigation")
+    print("PASS: live ZIP lookup, 3/5 nearest stores, categories, saved locations, offline cache, sample isolation, saved deals, rotation and large-text navigation")
 
 
 try:
@@ -103,5 +178,7 @@ except Exception:
     (OUT / "logcat.txt").write_text(adb("logcat", "-d", "-t", "1500"))
     raise
 finally:
+    adb("shell", "svc", "wifi", "enable")
+    adb("shell", "svc", "data", "enable")
     adb("shell", "settings", "put", "system", "font_scale", "1.0")
     adb("shell", "settings", "put", "system", "user_rotation", "0")

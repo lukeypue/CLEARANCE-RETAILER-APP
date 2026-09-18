@@ -1,29 +1,20 @@
-# First phone test
+# Test version 0.2.0 on Android
 
-This is an offline demo, version 0.1.0. All products, prices, stores, dates, and stock are fictional sample data fixed at September 18, 2026. This is not a live bargain finder yet.
+1. Download and open `Clearance-Retailer-v0.2.0-test.apk`. Allow installation from your browser/file app if Android asks. Install it over the existing test app where the signing identity matches; this preserves saved sample items.
+2. Open **Clearance Test**, enter a five-digit US ZIP, select 3 or 5 stores per retailer and a 50- or 100-mile radius, then tap **Find stores**. The first lookup needs internet and can take up to about a minute. US ZIPs only; some special-purpose ZIPs may be absent from the ZIP provider.
+3. Check the result's city/ZIP and radius. Each retailer has its own nearest locations. Distances are straight-line estimates from the ZIP center. Fewer than 3/5 results means fewer mapped stores were found within the radius. Use the retailer locator if coverage is sparse.
+4. Tap **Save store**, then **Saved**. Close/reopen the app and confirm it remains. Remove the final saved store and check that the empty state appears.
+5. In **Discover**, open **All 36 categories** and type a department such as Baby, Automotive, Farm, Grocery or Seasonal. Set an optional product search. **Search retailer website** explains which store to select on that website before opening it. Online prices can differ from store prices.
+6. Load a ZIP, disconnect internet, and search the same ZIP/radius. Cached results should remain visible with their retrieval timestamp. Older saved data is labeled; a failed new ZIP lookup must not relabel old results as that ZIP.
+7. Check **Sources**. All six inventory feeds must say **not connected**. This app cannot yet show real stock, clearance prices, a complete product list or clearance dates for those locations.
+8. Optionally select **Sources → Try sample catalog** to use the original fictional finds. Save a sample item, inspect its price history, and switch back with **Return to real stores**. Fictional offers must never appear at real stores. The two sample Walmart stores intentionally have different prices for the same air fryer.
 
-1. Open **Clearance Test**. Check that the sample-inventory banner is visible.
-2. Tap **Stores**, then browse **Walmart · North**. All results should belong to the North sample store.
-3. Open the compact air fryer. Its sample price is **$24**. Save it.
-4. Browse **Walmart · South**. The same sample product is **$32** at this different location. Saving one must not save the other.
-5. Tap **Saved**. Close the app and reopen it. Your saved item should remain.
-6. Try product search, category filters, and all three sorting choices.
-7. On Walmart North, enable **Include sold-out items** to reveal the wooden building set. Unknown stock remains visible and clearly labeled.
-8. Open a detail page. Check that **First spotted** and **Clearance started** are separate, with **Not provided** when the latter is unknown.
-9. Try portrait and landscape orientation and larger text. Controls should remain usable with scrolling.
-10. Visit **Sources**. All six retailers must say live data is not connected.
+## Network behavior
 
-## Automated checks
+Successful store lookups are cached for 24 hours. Switching the 3/5 count or retailer does not issue a network request. A new ZIP/radius is a new lookup; uncached requests are limited to one per 30 seconds and 20 per day in this small test. There is no polling or background location access.
 
-```sh
-bash scripts/test-domain.sh
-./gradlew lintDebug assembleDebug --no-daemon
-```
+The app contains no credentials or paid service enrollment. Complete live inventory remains blocked on an authorized data feed and backend integration. Never use this version's absence of product data as evidence that a physical store has sold out.
 
-The first command runs production domain code on Java 17, checking store isolation, combined filters, stock ordering, saved identity, dates, money, and fixture provenance. The second produces the Android test APK and lint report.
+## Automated evidence
 
-Android build and device-test results are reported in the GitHub Actions run and PR. A passing build does not by itself mean a phone/emulator test has passed.
-
-## Test build signing
-
-The debug package is `com.clearance.retailer.test`. CI caches a debug-only signing key for repeat installations. Cache eviction can change the debug certificate and require uninstall/reinstall (which removes local saved items). Production signing is not configured. No production keystore or API keys are checked in.
+`scripts/test-domain.sh` runs the production query and store-selection assertions. GitHub builds and lints the Android code, runs six instrumentation tests including one real network lookup near test ZIP 84043, then performs `scripts/android-smoke.py` UI flows. That ZIP is a test fixture location, not the user's location. Test data and caches are created only on the CI emulator and are not packaged in the APK. Screenshots, the instrumentation report and failure diagnostics are retained in the `android-phone-smoke` artifact.

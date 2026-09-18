@@ -7,3 +7,5 @@ local.properties
 *.jks
 .env
 .worktrees/
+__pycache__/
+*.pyc
