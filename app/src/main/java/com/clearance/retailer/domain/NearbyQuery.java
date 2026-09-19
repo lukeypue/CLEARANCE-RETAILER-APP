@@ -10,6 +10,7 @@ public final class NearbyQuery {
         if(shop.equals("vacant")||shop.equals("no")||name.matches(".*\\b(fuel|gas|distribution|fulfillment|garden center|auto care|vision center|photo center)\\b.*"))return "";
         if(name.contains("pharmacy")&&!name.equals("walgreens pharmacy"))return "";
         if(name.contains("warehouse")&&!name.matches("(lowe s|lowes) home improvement warehouse"))return "";
+        if("yes".equals(clean(tags.get("proposed:building"))))return "";
         for(String key:Arrays.asList("disused","abandoned","demolished","construction"))
             if("yes".equals(tags.get(key))||tags.containsKey(key+":shop"))return "";
         if(name.startsWith("lowes foods")||name.startsWith("lowe s foods"))return "";

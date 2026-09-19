@@ -30,6 +30,13 @@ public final class NearbyTests {
             eq(NearbyQuery.retailer(Map.of("name","Walmart Garden Center", "brand","Walmart")), "");
             eq(NearbyQuery.retailer(Map.of("name","Walmart Auto Care Center", "brand","Walmart")), "");
         });
+        check("proposed Target near 84414 is not an operating store", () -> {
+            // OSM way 1493198240 has a normal shop tag alongside proposed:building=yes.
+            eq(NearbyQuery.retailer(Map.of("name","Target", "brand","Target",
+                "shop","supermarket", "proposed:building","yes")), "");
+            eq(NearbyQuery.retailer(Map.of("name","Target", "shop","supermarket",
+                "proposed:building","no")), "target");
+        });
         check("nearest count applies to each retailer independently", () -> {
             List<NearbyStore> stores=new ArrayList<>();
             for(String brand:List.of("walmart","target"))for(int i=6;i>=1;i--)stores.add(shop(brand+i,brand,40+i*.01,-111));

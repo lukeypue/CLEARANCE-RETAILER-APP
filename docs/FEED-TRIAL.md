@@ -35,3 +35,26 @@ A production integration still needs a hosted backend with server-side secrets, 
 Keep the API key out of the repository, APK, fixtures, logs, and public workflow inputs. The experiment used a private temporary file outside the repository. Raw downloaded pages are scratch research, not app data or redistribution-ready fixtures.
 
 Provider references: [Walmart API](https://www.scrapingbee.com/documentation/walmart/), [HTML API and usage accounting](https://www.scrapingbee.com/documentation/).
+
+## Follow-up: nearest stores around ZIP 84414
+
+The phone trial location is now ZIP 84414. Fresh Zippopotam.us and OpenStreetMap/Overpass lookups found the following nearest mapped locations within 50 miles. Distances are straight-line miles from the ZIP center (41.3112, -111.9689), not driving distances or distances from a home address.
+
+| Retailer | Nearest mapped store | Approximate miles |
+| --- | --- | --- |
+| Walmart | Harrisville, 534 North Harrisville Road, store 2921 | 2.9 |
+| Target | Riverdale, 1135 West Riverdale Road, store 1753 | 9.7 |
+| Home Depot | Ogden, 984 Wall Avenue, store 4411 | 4.4 |
+| Lowe's | Ogden, 344 North Washington Boulevard, store 2858 | 3.2 |
+| Tractor Supply | West Haven, 1985 West 2550 South, store 1951 | 7.1 |
+| Walgreens | North Ogden, 2555 N 400 E, store 10820 | 0.5 |
+
+The five nearest mapped Walmarts were Harrisville 2921 (2.9 miles), Ogden 3789 (5.5), Riverdale 1708 (9.5), South Ogden Neighborhood Market 5206 (11.1), and Perry 3454 (12.4). The first three store identities were also checked against Walmart's public store pages.
+
+Three additional ScrapingBee clearance searches, one per nearest Walmart, all returned the requested store ID and 70 entries / 66 distinct product IDs. Walmart-sold entries marked for pickup numbered six in Harrisville, five in Ogden, and five in Riverdale. These remain candidates: no shelf counts or verified local clearance markdowns were established. The provider's city labels for stores 3789 and 1708 differed from the retailer directory; store ID is the matching key.
+
+Those three requests consumed 30 additional credits. The account endpoint then reported 193 used, 807 remaining, and zero running requests. No other retailer was re-scraped in this follow-up.
+
+The fresh map response exposed a proposed Target (OSM way 1493198240) with normal retailer/shop tags plus proposed:building=yes. It incorrectly ranked first under the previous filter. The source filter now rejects that proposed building; a regression test using its actual tags failed before the fix and passed afterward. All 23 domain tests passed. This narrow correction does not guarantee that all map records are complete or up to date.
+
+Map records are copyright [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), under ODbL; ZIP center from [Zippopotam.us](https://api.zippopotam.us/us/84414). Retailer references: [Harrisville Walmart](https://www.walmart.com/store/2921-harrisville-ut), [Ogden Walmart](https://www.walmart.com/store/3789-ogden-ut), [Riverdale Walmart](https://www.walmart.com/store/1708-riverdale-ut), [Riverdale Target](https://www.target.com/sl/riverdale/1753).
