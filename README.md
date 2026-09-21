@@ -35,7 +35,7 @@ No verified complete physical-store clearance feed is available to this project 
 
 ## Install and test
 
-In **Actions**, select a successful **Android test build** for `codex/android-foundation` and download **Clearance-Retailer-v0.3.0-test**. Unzip and install the APK on Android 8 or newer. Version 0.1's signing key was not retained by its CI job. **Uninstall v0.1 before installing v0.2; saved sample items will reset.** Version 0.2 explicitly generates and caches its test key at the same path used by Gradle so later test updates can preserve data while that cache survives. See [phone test steps](docs/TESTING.md).
+In **Actions**, select a successful **Android test build** for `codex/android-foundation` and download **Clearance-Retailer-v0.3.0-test**. Unzip and install the APK on Android 8 or newer. Version 0.1's signing key was not retained by its CI job. **Uninstall v0.1 before installing v0.3; saved sample items will reset.** Version 0.2 explicitly generates and caches its test key at the same path used by Gradle so later test updates can preserve data while that cache survives. Version 0.3 has the same verified signing certificate as the delivered v0.2 APK. See [phone test steps](docs/TESTING.md).
 
 ## Build and verification
 
