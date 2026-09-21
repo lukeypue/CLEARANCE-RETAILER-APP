@@ -23,11 +23,13 @@ def snapshot():
     return ET.fromstring(xml)
 
 
-def locate(value, *, scroll=False, timeout=25):
+def locate(value, *, scroll=False, timeout=25, editable=False):
     end = time.monotonic() + timeout
     while time.monotonic() < end:
         root = snapshot()
         for node in root.iter("node"):
+            if editable and node.get("class") != "android.widget.EditText":
+                continue
             if any(node.get(k, "").casefold() == value.casefold() for k in ("text", "content-desc")):
                 bounds = list(map(int, re.findall(r"\d+", node.get("bounds", ""))))
                 if len(bounds) == 4 and bounds[2] > bounds[0] and bounds[3] > bounds[1]:
@@ -57,7 +59,7 @@ def launch():
 
 
 def fill(value, text):
-    tap(value)
+    tap(value, editable=True)
     adb("shell", "input", "keyevent", "KEYCODE_MOVE_END")
     for _ in range(8):
         adb("shell", "input", "keyevent", "KEYCODE_DEL")

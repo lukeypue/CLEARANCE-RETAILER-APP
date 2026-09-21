@@ -104,7 +104,12 @@ def collect(path,key):
  feed={'schema':1,'zip':'84414','generated_at':int(time.time()*1000),'sources':SOURCES,'stores':STORES,'offers':offers+online}
  # A partial failed run never overwrites the prior valid published feed.
  path.parent.mkdir(parents=True,exist_ok=True);temp=path.with_suffix('.tmp');temp.write_text(json.dumps(feed,indent=2));temp.replace(path)
- usage=request(key,'usage');print('Collected',len(offers),'pickup candidates. Provider reports',int(usage['max_api_credit'])-int(usage['used_api_credit']),'credits remaining.')
+ print('Collected',len(offers),'pickup candidates.')
+ try:
+  usage=request(key,'usage');remaining=int(usage['max_api_credit'])-int(usage['used_api_credit'])
+ except Exception:
+  print('Feed saved; remaining credit balance is temporarily unavailable.')
+ else:print('Provider reports',remaining,'credits remaining.')
 if __name__=='__main__':
  parser=argparse.ArgumentParser();parser.add_argument('--output',default='feeds/trial.json');args=parser.parse_args()
  key=os.environ.get('SCRAPINGBEE_API_KEY','')

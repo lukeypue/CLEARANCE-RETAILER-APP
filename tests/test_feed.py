@@ -1,4 +1,5 @@
-import copy, importlib.util, pathlib, unittest
+import copy, importlib.util, pathlib, unittest, tempfile, json
+from unittest.mock import patch
 spec=importlib.util.spec_from_file_location('collector',pathlib.Path(__file__).parents[1]/'scripts'/'collect-feed.py')
 c=importlib.util.module_from_spec(spec);spec.loader.exec_module(c)
 class FeedTests(unittest.TestCase):
@@ -33,4 +34,16 @@ class FeedTests(unittest.TestCase):
   x=c.normalize_home_depot(h,1789810000000)[0];self.assertEqual(x['scope'],'online');self.assertEqual(x['store_id'],'');self.assertEqual(x['price_cents'],9900);self.assertIsNone(x['original_cents'])
  def test_challenge_not_a_catalog(self):
   with self.assertRaises(ValueError):c.normalize_home_depot('<title>Challenge Validation</title>',1789810000000)
+ def test_usage_reporting_failure_keeps_successful_collection(self):
+  responses=[{'max_api_credit':1000,'used_api_credit':200}]+[{'location':{'store_id':s['id']},'products':[self.product]} for s in c.STORES]+[OSError('usage unavailable')]
+  with tempfile.TemporaryDirectory() as folder, patch.object(c,'request',side_effect=responses), patch('builtins.print'):
+   path=pathlib.Path(folder)/'feed.json';path.write_text('{"offers":[]}')
+   c.collect(path,'test-key')
+   self.assertEqual(len(json.loads(path.read_text())['offers']),3)
+ def test_partial_collection_failure_preserves_previous_bytes(self):
+  responses=[{'max_api_credit':1000,'used_api_credit':200},self.payload,OSError('collection unavailable')]
+  with tempfile.TemporaryDirectory() as folder, patch.object(c,'request',side_effect=responses):
+   path=pathlib.Path(folder)/'feed.json';previous='{"offers":[]}';path.write_text(previous)
+   with self.assertRaises(OSError):c.collect(path,'test-key')
+   self.assertEqual(path.read_text(),previous)
 if __name__=='__main__':unittest.main()
