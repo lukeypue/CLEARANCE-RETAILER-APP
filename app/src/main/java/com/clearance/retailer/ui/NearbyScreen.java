@@ -31,7 +31,7 @@ public final class NearbyScreen {
         prefs=activity.getSharedPreferences("nearby-browsing",0);
         saved=new SavedStores(activity.getSharedPreferences("saved-stores",0));
         retailer=prefs.getString("retailer","");category=prefs.getString("category","");search=prefs.getString("search","");
-        zip=prefs.getString("zip",repository.requestedZip);count=prefs.getInt("count",5);radius=prefs.getInt("radius",repository.requestedRadius);
+        zip=prefs.getString("zip",repository.requestedZip.isEmpty()?"84414":repository.requestedZip);count=prefs.getInt("count",5);radius=prefs.getInt("radius",repository.requestedRadius);
         if(count!=3&&count!=5)count=5;if(radius!=50&&radius!=100)radius=50;
     }
     public void observe(){repository.observe(redraw);}
@@ -46,7 +46,7 @@ public final class NearbyScreen {
         content.addView(text(activity,favorites?"Keep your usual stops together.":"Find the nearest listed locations for six retailers.",15,MUTED,false));gap(content,18);
         if(!favorites)locationForm(content);
         inventoryNotice(content);
-        if(!tab.equals("Stores"))searchForm(content);
+        if(tab.equals("Stores"))searchForm(content);
         retailers(content);gap(content,16);
         if(favorites){
             List<NearbyStore> stores=saved.all();int shown=0;
@@ -153,13 +153,9 @@ public final class NearbyScreen {
         content.addView(text(activity,"Know your data.",32,INK,true));gap(content,14);
         LinearLayout info=card(activity);info.addView(text(activity,"Store discovery is connected",20,INK,true));gap(info,8);
         info.addView(text(activity,"ZIP centers: Zippopotam.us. Store locations: OpenStreetMap through Overpass. Community map records can be missing or out of date. Distances are straight-line estimates from a ZIP center. Store lookups are saved for 24 hours; older results are labeled.",14,MUTED,false));addCard(content,info);
-        for(Retailer r:Retailer.values()){
-            LinearLayout card=card(activity);card.addView(text(activity,r.label,19,INK,true));gap(card,8);
-            card.addView(text(activity,"Inventory: not connected",14,AMBER,true));gap(card,6);
-            card.addView(text(activity,"No verified in-store stock, clearance prices, complete product list, or clearance-start dates. A retailer-approved inventory feed is still required.",13,MUTED,false));addCard(content,card);
-        }
+        new TrialScreen(activity,redraw).statuses(content);
         LinearLayout privacy=card(activity);privacy.addView(text(activity,"Your information",20,INK,true));gap(privacy,8);
-        privacy.addView(text(activity,"The ZIP you search is sent to Zippopotam.us. Its approximate center is sent to Overpass. No GPS permission, account or analytics. Your searches and saved stores stay on this phone. Directions and retailer buttons open other apps or websites, whose privacy policies apply.\n\nThis is an independent test app, not affiliated with the retailers.",14,MUTED,false));addCard(content,privacy);
+        privacy.addView(text(activity,"The ZIP you search is sent to Zippopotam.us. Its approximate center is sent to Overpass. The Discover feed is downloaded from GitHub when you check for updates. GitHub receives normal request metadata, such as your IP address. No GPS permission, account or analytics. Your searches and saved stores stay on this phone. Directions and retailer buttons open other apps or websites, whose privacy policies apply.\n\nThis is an independent test app, not affiliated with the retailers.",14,MUTED,false));addCard(content,privacy);
         LinearLayout sample=card(activity);sample.addView(text(activity,"Optional sample catalog",19,INK,true));gap(sample,8);
         sample.addView(text(activity,"Fictional prices and products for trying the original browsing design. Sample saved items are kept separately from real saved stores.",14,MUTED,false));gap(sample,12);
         sample.addView(button(activity,demo?"Return to real stores":"Try sample catalog",false,toggleDemo));addCard(content,sample);attribution(content);

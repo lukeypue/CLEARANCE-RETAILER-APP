@@ -16,6 +16,7 @@ import com.clearance.retailer.domain.Categories;
 import com.clearance.retailer.model.*;
 import com.clearance.retailer.ui.DealDetails;
 import com.clearance.retailer.ui.NearbyScreen;
+import com.clearance.retailer.ui.TrialScreen;
 import java.util.*;
 import static com.clearance.retailer.ui.Ui.*;
 
@@ -29,18 +30,19 @@ public final class MainActivity extends Activity {
     private ScrollView scroll;
     private String tab="Discover";
     private NearbyScreen nearby;
+    private TrialScreen trial;
     private boolean demoMode;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         saved=new SavedDeals(this);prefs=getSharedPreferences("browsing",MODE_PRIVATE);restoreFilters();
-        demoMode=prefs.getBoolean("demoMode",false);nearby=new NearbyScreen(this,this::render);nearby.observe();
+        demoMode=prefs.getBoolean("demoMode",false);nearby=new NearbyScreen(this,this::render);nearby.observe();trial=new TrialScreen(this,this::render);trial.observe();
         getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(WHITE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         render();
     }
     @Override protected void onPause(){persist();super.onPause();}
-    @Override protected void onDestroy(){nearby.close();super.onDestroy();}
+    @Override protected void onDestroy(){nearby.close();trial.close();super.onDestroy();}
     private void persist(){
         prefs.edit().putString("retailer",filter.retailerId).putString("store",filter.storeId)
             .putString("category",filter.category).putString("search",filter.search)
@@ -77,8 +79,9 @@ public final class MainActivity extends Activity {
         TextView mark=text(this,"C",22,WHITE,true);mark.setGravity(Gravity.CENTER);mark.setBackground(bg(this,GREEN,12,false));
         brand.addView(mark,new LinearLayout.LayoutParams(dp(this,42),dp(this,42)));
         LinearLayout name=column(this);pad(name,12,0);name.addView(text(this,"CLEARANCE",17,INK,true));name.addView(text(this,"Find more. Spend less.",11,MUTED,false));
-        brand.addView(name,new LinearLayout.LayoutParams(0,-2,1));brand.addView(pill(this,"v0.2 TEST",GREEN,PALE));content.addView(brand);gap(content,22);
+        brand.addView(name,new LinearLayout.LayoutParams(0,-2,1));brand.addView(pill(this,"v0.3 TEST",GREEN,PALE));content.addView(brand);gap(content,22);
         if(tab.equals("Sources"))nearby.sources(content,this::toggleDemo,demoMode);
+        else if(!demoMode&&tab.equals("Discover"))trial.render(content);
         else if(!demoMode)nearby.render(content,tab);
         else if(tab.equals("Stores"))renderStores();else renderBrowse();
     }
