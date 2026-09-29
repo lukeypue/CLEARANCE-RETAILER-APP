@@ -1,0 +1,38 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.clearance.retailer'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.clearance.retailer'
+        minSdk 26
+        targetSdk 35
+        versionCode 3
+        versionName '0.3.0'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    signingConfigs {
+        debug {
+            // Match the exact path retained by the GitHub test-key cache.
+            storeFile file(System.getProperty('user.home') + '/.android/debug.keystore')
+        }
+    }
+    buildTypes {
+        debug {
+            applicationIdSuffix '.test'
+            versionNameSuffix '-test'
+        }
+        release { minifyEnabled false }
+    }
+    lint { abortOnError true; checkReleaseBuilds true }
+}
+
+// Test-only dependencies; the installation APK still has no third-party runtime libraries.
+dependencies {
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+}

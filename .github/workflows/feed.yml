@@ -1,0 +1,31 @@
+name: Refresh trial feed
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: trial-feed-collection
+  cancel-in-progress: false
+jobs:
+  collect:
+    if: github.ref == 'refs/heads/codex/android-foundation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p test_feed.py
+      - name: Collect three stores within trial budget
+        env:
+          SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
+        run: python scripts/collect-feed.py
+      - name: Publish shared observations
+        run: |
+          git config user.name 'Clearance feed'
+          git config user.email 'feed@users.noreply.github.com'
+          git add feeds/trial.json
+          git diff --cached --quiet && exit 0
+          git commit -m 'data: refresh trial observations [skip ci]'
+          git push origin HEAD:codex/android-foundation
