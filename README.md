@@ -23,7 +23,17 @@ The feed is collected outside Android. Set the **SCRAPINGBEE_API_KEY** repositor
 python scripts/collect-feed.py
 ```
 
-A run makes three 10-credit Walmart requests, keeps a 100-credit reserve, has no automatic retry loop, and replaces the feed only after all three responses pass validation. Existing Home Depot observations keep their earlier timestamps; this collector currently refreshes Walmart only. No key is included in the APK, feed, repository, or workflow inputs. GitHub secret configuration and automated refresh have not been completed for this trial build.
+Preview the next collection without a key, network requests or file changes:
+
+```sh
+python scripts/collect-feed.py --plan
+```
+
+The preview lists due and cached stores, expected search requests and estimated credits. Each due store needs one 10-credit light Walmart search; recent successful scans are reused for six hours, including searches with no eligible candidates. A fully cached run makes no requests and leaves the file unchanged. The first run against the older feed treats all three stores as due because it has no explicit scan metadata: 30 estimated credits and a minimum available balance of 130.
+
+Collection checks the available balance before searching and keeps a 100-credit reserve under that estimate. It has no automatic retry loop and replaces the feed only after every due response passes validation. Cached Walmart observations and existing Home Depot observations keep their earlier timestamps; this collector currently refreshes Walmart only. A failed batch may still consume credits before aborting. The cache is not a durable daily or monthly spending limit, and the estimate must be revisited if provider pricing or query behavior changes.
+
+This remains one default-page clearance search per store, not a full catalog scan. Additive `store_scans` metadata records successful scans independently of product timestamps; invalid, future or missing scan times never establish freshness. No key is included in the APK, feed, repository, or workflow inputs. GitHub secret configuration and automated refresh have not been completed for this trial build.
 
 ## Data and limits
 
@@ -42,6 +52,7 @@ In **Actions**, select a successful **Android test build** for `codex/android-fo
 JDK 17, Gradle 8.11.1, AGP 8.9.2, Android SDK 35/Build Tools 35.0.0; min API 26. No third-party runtime libraries in the installation app. AndroidX/JUnit are test-only dependencies.
 
 ```sh
+python3 -m unittest discover -s tests -p test_feed.py
 bash scripts/test-domain.sh
 ./gradlew lintDebug assembleDebug assembleDebugAndroidTest
 ```

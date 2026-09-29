@@ -3,6 +3,9 @@ import argparse, json, os, re, time, urllib.request, urllib.parse
 from decimal import Decimal, InvalidOperation
 from html.parser import HTMLParser
 from pathlib import Path
+CACHE_TTL_MS=6*60*60*1000
+SEARCH_CREDITS=10
+CREDIT_RESERVE=100
 STORES=[
  {'id':'2921','retailer':'walmart','name':'Walmart · Harrisville','address':'534 North Harrisville Road, Harrisville, UT 84404','distance':2.9},
  {'id':'3789','retailer':'walmart','name':'Walmart · Ogden','address':'1959 Wall Avenue, Ogden, UT 84401','distance':5.5},
@@ -38,7 +41,8 @@ def normalize_walmart(payload,store,observed_at):
  result={}
  for p in products:
   if not isinstance(p,dict):continue
-  if p.get('seller_name')!='Walmart.com' or p.get('out_of_stock') is not False or p.get('fulfillment',{}).get('pickup') is not True:continue
+  fulfillment=p.get('fulfillment')
+  if p.get('seller_name')!='Walmart.com' or p.get('out_of_stock') is not False or not isinstance(fulfillment,dict) or fulfillment.get('pickup') is not True:continue
   try:
    pid=str(p['id']);title=p['title'].strip()
    if not pid.isdigit() or not title or p.get('currency')!='USD':continue
@@ -80,9 +84,35 @@ def normalize_home_depot(html,observed_at):
   offers[identity]={'id':identity,'retailer':'home-depot','store_id':'','product_id':pid,'title':card['title'],'category':category(card['title']),'price_cents':price,'original_cents':None,'pickup':False,'observed_at':observed_at,'scope':'online','url':url}
  if not offers:raise ValueError('No usable online product cards')
  return list(offers.values())
-def check_budget(usage):
+def read_previous(path):
+ previous=json.loads(path.read_text()) if path.exists() else {}
+ if not isinstance(previous,dict) or not isinstance(previous.get('offers',[]),list) or any(not isinstance(offer,dict) for offer in previous.get('offers',[])):
+  raise ValueError('Invalid previous feed')
+ return previous
+def collection_plan(previous,now=None):
+ """Offline forecast. Only explicit successful store scans establish freshness."""
+ if now is None:now=int(time.time()*1000)
+ scans=previous.get('store_scans',{})
+ if not isinstance(scans,dict):scans={}
+ due=[];cached=[]
+ for store in STORES:
+  scan=scans.get('walmart:'+store['id'],{})
+  stamp=scan.get('last_successful_scan_at') if isinstance(scan,dict) else None
+  fresh=type(stamp) is int and 1577836800000<=stamp<=now and now-stamp<CACHE_TTL_MS
+  (cached if fresh else due).append(store['id'])
+ estimated=len(due)*SEARCH_CREDITS
+ return {'zip':'84414','cache_ttl_hours':6,'due_store_ids':due,'cached_store_ids':cached,
+  'search_requests':len(due),'estimated_credits':estimated,
+  'minimum_remaining_credits':CREDIT_RESERVE+estimated if due else 0,
+  'assumptions':[
+   'One default-page light Walmart clearance search per due store; no retries or pagination.',
+   'Estimate assumes 10 credits per search. Provider pricing and available balance are not checked by this offline plan.',
+   'Collection checks the provider balance before paid requests and keeps a 100-credit reserve under this estimate.',
+   'A successful scan is reused for six hours, including a scan with no eligible candidates; this does not establish complete clearance inventory.',
+   'Failed batches can consume credits without updating scan timestamps. This is not a durable daily or monthly spending limit.']}
+def check_budget(usage,search_requests=len(STORES)):
  remaining=int(usage['max_api_credit'])-int(usage['used_api_credit'])
- if remaining<130:raise ValueError('Credit reserve reached; collection not started')
+ if remaining<CREDIT_RESERVE+search_requests*SEARCH_CREDITS:raise ValueError('Credit reserve reached; collection not started')
  return remaining
 def request(key,endpoint,params=None):
  url='https://app.scrapingbee.com/api/v1/'+endpoint
@@ -93,26 +123,43 @@ def request(key,endpoint,params=None):
   if len(raw)>2000000:raise ValueError('Response too large')
   return json.loads(raw)
 def collect(path,key):
- # Three fixed 10-credit calls, no caller-supplied URL, no retry loop.
- check_budget(request(key,'usage'))
- previous=json.loads(path.read_text()) if path.exists() else {}
+ # At most one fixed search per due store, no caller-supplied URL or retry loop.
+ previous=read_previous(path);plan=collection_plan(previous)
+ if not plan['due_store_ids']:
+  print('All three store scans are within six hours; no requests made and feed unchanged.')
+  return
+ check_budget(request(key,'usage'),plan['search_requests'])
  online=[x for x in previous.get('offers',[]) if x.get('scope')=='online']
- offers=[]
+ offers=[];scans={};collected=0
  for store in STORES:
+  identity='walmart:'+store['id']
+  if store['id'] in plan['cached_store_ids']:
+   offers.extend(x for x in previous.get('offers',[]) if x.get('retailer')=='walmart' and x.get('store_id')==store['id'] and x.get('scope')=='store_pickup')
+   scans[identity]=previous['store_scans'][identity]
+   continue
   body=request(key,'walmart/search',{'query':'clearance','store_id':store['id'],'light_request':'true'})
-  offers.extend(normalize_walmart(body,store,int(time.time()*1000)))
- feed={'schema':1,'zip':'84414','generated_at':int(time.time()*1000),'sources':SOURCES,'stores':STORES,'offers':offers+online}
+  observed_at=int(time.time()*1000);found=normalize_walmart(body,store,observed_at)
+  offers.extend(found);collected+=len(found)
+  scans[identity]={'last_successful_scan_at':observed_at}
+ feed={'schema':1,'zip':'84414','generated_at':int(time.time()*1000),'sources':SOURCES,'stores':STORES,'offers':offers+online,'store_scans':scans}
  # A partial failed run never overwrites the prior valid published feed.
  path.parent.mkdir(parents=True,exist_ok=True);temp=path.with_suffix('.tmp');temp.write_text(json.dumps(feed,indent=2));temp.replace(path)
- print('Collected',len(offers),'pickup candidates.')
+ print('Collected',collected,'pickup candidates from',plan['search_requests'],'stores; reused',len(plan['cached_store_ids']),'store scans.')
  try:
   usage=request(key,'usage');remaining=int(usage['max_api_credit'])-int(usage['used_api_credit'])
  except Exception:
   print('Feed saved; remaining credit balance is temporarily unavailable.')
  else:print('Provider reports',remaining,'credits remaining.')
-if __name__=='__main__':
- parser=argparse.ArgumentParser();parser.add_argument('--output',default='feeds/trial.json');args=parser.parse_args()
+def main(argv=None):
+ parser=argparse.ArgumentParser();parser.add_argument('--output',default='feeds/trial.json')
+ parser.add_argument('--plan',action='store_true',help='Print an offline collection forecast without a key, network requests, or file changes.')
+ args=parser.parse_args(argv)
+ if args.plan:
+  try:print(json.dumps(collection_plan(read_previous(Path(args.output))),indent=2))
+  except Exception as exc:raise SystemExit('Could not plan collection. Error type: '+type(exc).__name__) from None
+  return
  key=os.environ.get('SCRAPINGBEE_API_KEY','')
  if not key:raise SystemExit('Set the SCRAPINGBEE_API_KEY repository secret before running collection.')
  try:collect(Path(args.output),key)
  except Exception as exc:raise SystemExit('Collection failed; prior feed preserved. Error type: '+type(exc).__name__) from None
+if __name__=='__main__':main()
